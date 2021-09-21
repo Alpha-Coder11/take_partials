@@ -2,13 +2,15 @@
 
 enum enum_trade_type
 {
-    TRADE_TYPE_BUY  = 0,
-    TRADE_TYPE_SELL = 1   
+    TRADE_TYPE_NONE      = 0,  
+    TRADE_TYPE_BUY,
+    TRADE_TYPE_SELL,      
+    TRADE_TYPE_BUY_LIMIT, 
+    TRADE_TYPE_SELL_LIMIT,   
 };
 
 double optimal_lot_size (double max_loss_percent , double entry_price, double stop_loss)      
 {
-   
     double account_equity = AccountEquity();
     double lot_size = MarketInfo(NULL,MODE_LOTSIZE);   // tells the Contract size of each pair for our broker
     double tick_value = MarketInfo(NULL,MODE_TICKVALUE);
@@ -16,16 +18,16 @@ double optimal_lot_size (double max_loss_percent , double entry_price, double st
     double max_loss_in_account_currency = account_equity * max_loss_percent;
     double max_loss_in_quote_currency = max_loss_in_account_currency / tick_value;
     double max_loss_in_ticks = MathAbs( entry_price - stop_loss ) / tick_size;
-    double optimal_lot_size = max_loss_in_quote_currency / max_loss_in_ticks;
+    double optimal_lot = max_loss_in_quote_currency / max_loss_in_ticks;
     
-    Alert("Your Account Equity is : ", account_equity);
-    Alert("Lot Size = "+ lot_size);
-    Alert("Tickvalue: " + tick_value);
-    Alert ("TSize: "+ tick_size);
-    Alert ("Max loss for this trade in usd = " + max_loss_in_account_currency);
-    Alert ("maxlossinquotecurrency = " + max_loss_in_quote_currency); 
-    Alert("Max loss in pips: " + max_loss_in_ticks);
-    Alert("Optimal lot size = " + optimal_lot_size );
+    Alert("Your Account Equity is : ", (string)account_equity);
+    Alert("Lot Size = "+ (string)lot_size);
+    Alert("Tickvalue: " + (string)tick_value);
+    Alert ("TSize: "+ (string)tick_size);
+    Alert ("Max loss for this trade in usd = " + (string)max_loss_in_account_currency);
+    Alert ("maxlossinquotecurrency = " + (string)max_loss_in_quote_currency); 
+    Alert("Max loss in pips: " + (string)max_loss_in_ticks);
+    Alert("Optimal lot size = " + (string)optimal_lot );
     
-    return optimal_lot_size;
+    return optimal_lot;
  }

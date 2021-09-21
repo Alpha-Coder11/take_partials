@@ -196,7 +196,7 @@ int trade_filter()
 char validate_inputs()
 {   
     char ret = INIT_PARAMETERS_INCORRECT;
-    if( trade == TRADE_TYPE_BUY )
+    if( (trade == TRADE_TYPE_BUY) || (trade == TRADE_TYPE_BUY_LIMIT) )
     {
         if( (take_profit_value > tp_2)
         && (tp_2 > buying_position) && (buying_position > stop_loss_value)
@@ -205,7 +205,7 @@ char validate_inputs()
             ret = INIT_SUCCEEDED;
         }
     }
-    else if(trade == TRADE_TYPE_SELL)
+    else if( (trade == TRADE_TYPE_SELL) && (trade == TRADE_TYPE_SELL_LIMIT) )
     { 
         if( (take_profit_value > 0)
         && (take_profit_value < tp_2) && (tp_2 < selling_position) 
