@@ -27,22 +27,34 @@ uchar order_status = false;
 uchar slippage = 3;
 
 int OnInit()
-{ 
+{
+  uint temp = 0;  
   char result = 0;
   /*
   if( IsDemo() == 0 )
   {
       return ( INIT_FAILED );
   }*/
-  if( (trade == TRADE_TYPE_BUY) || (trade == TRADE_TYPE_BUY_LIMIT) )
+  if( trade == TRADE_TYPE_BUY_LIMIT )
   {
       tp_2 = buying_position + ( risk_reward_ratio * ( buying_position - stop_loss_value ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, buying_position, stop_loss_value);
   }
-  else if( (trade == TRADE_TYPE_SELL) || (trade == TRADE_TYPE_SELL_LIMIT) )
+  else if( trade == TRADE_TYPE_BUY )
+  {
+      temp = Ask;
+      tp2 = temp - ( risk_reward_ratio * ( stop_loss_value - temp ));
+  }
+  else if (trade == TRADE_TYPE_SELL_LIMIT) 
   {
       tp_2 = selling_position - ( risk_reward_ratio * ( stop_loss_value - selling_position ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, selling_position, stop_loss_value);
+  }
+  else if( trade == TRADE_TYPE_SELL )
+  {   
+      temp = Bid;
+      tp2 = temp - ( risk_reward_ratio * ( stop_loss_value - temp ));
+  
   }
   else if( trade == TRADE_TYPE_NONE )
   {
@@ -52,7 +64,7 @@ int OnInit()
   {
       optimal_lot_size = 0;
       partial_close_lot = 0;
-  
+      tp2 = -1; 
   }
 
   result = validate_inputs();
@@ -164,7 +176,7 @@ void OnTick()
     {
         if ( try == 0 )
         {
-            ticket = OrderSend(Symbol(), OP_BUY, optimal_lot_size, Bid, slippage, stop_loss_value,take_profit_value,"Sell Order", 99999, 0, clrYellow);            
+            ticket = OrderSend(Symbol(), OP_BUY, optimal_lot_size, Bid, slippage, stop_loss_value,take_profit_value, "Sell Order", 99999, 0, clrYellow);            
         }
         else if( try == 1)
         {
@@ -205,7 +217,7 @@ char validate_inputs()
             ret = INIT_SUCCEEDED;
         }
     }
-    else if( (trade == TRADE_TYPE_SELL) && (trade == TRADE_TYPE_SELL_LIMIT) )
+    else if( (trade == TRADE_TYPE_SELL) || (trade == TRADE_TYPE_SELL_LIMIT) )
     { 
         if( (take_profit_value > 0)
         && (take_profit_value < tp_2) && (tp_2 < selling_position) 
