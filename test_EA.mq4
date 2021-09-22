@@ -43,7 +43,8 @@ int OnInit()
   else if( trade == TRADE_TYPE_BUY )
   {
       temp = Ask;
-      tp2 = temp - ( risk_reward_ratio * ( stop_loss_value - temp ));
+      tp2 = temp + ( risk_reward_ratio * ( stop_loss_value - temp ));
+      optimal_lot_size = optimal_lot_size( max_loss_percent, temp, stop_loss_value);
   }
   else if (trade == TRADE_TYPE_SELL_LIMIT) 
   {
@@ -54,7 +55,7 @@ int OnInit()
   {   
       temp = Bid;
       tp2 = temp - ( risk_reward_ratio * ( stop_loss_value - temp ));
-  
+      optimal_lot_size = optimal_lot_size( max_loss_percent, temp, stop_loss_value);
   }
   else if( trade == TRADE_TYPE_NONE )
   {
@@ -67,7 +68,7 @@ int OnInit()
       tp2 = -1; 
   }
 
-  result = validate_inputs();
+  result = validate_inputs(temp);
   if( result != INIT_SUCCEEDED )
   {
       return(result);
@@ -162,7 +163,7 @@ void OnTick()
             order_status = OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed );
             if( order_status == 0 )
             {
-                Print("OrderClose failed with error #", GetLastError());
+                Alert("OrderClose failed with error #", GetLastError());
             }
             else
             {
@@ -205,10 +206,19 @@ int trade_filter()
     return 0;
 }
 //+------------------------------------------------------------------+
-char validate_inputs()
+char validate_inputs(double position)
 {   
     char ret = INIT_PARAMETERS_INCORRECT;
-    if( (trade == TRADE_TYPE_BUY) || (trade == TRADE_TYPE_BUY_LIMIT) )
+    if( trade == TRADE_TYPE_BUY )
+    {
+        if( (take_profit_value > tp_2)
+        && (tp_2 > position) && (position > stop_loss_value)
+        && (stop_loss_value > 0) )
+        {
+            ret = INIT_SUCCEEDED;
+        }
+    }
+    else if( trade == TRADE_TYPE_BUY_LIMIT ) 
     {
         if( (take_profit_value > tp_2)
         && (tp_2 > buying_position) && (buying_position > stop_loss_value)
@@ -217,8 +227,17 @@ char validate_inputs()
             ret = INIT_SUCCEEDED;
         }
     }
-    else if( (trade == TRADE_TYPE_SELL) || (trade == TRADE_TYPE_SELL_LIMIT) )
+    else if( trade == TRADE_TYPE_SELL )
     { 
+        if( (take_profit_value > 0)
+        && (take_profit_value < tp_2) && (tp_2 < position) 
+        && (position < stop_loss_value) )
+        {
+            ret = INIT_SUCCEEDED;
+        }
+    }
+    else if (trade == TRADE_TYPE_SELL_LIMIT)
+    {
         if( (take_profit_value > 0)
         && (take_profit_value < tp_2) && (tp_2 < selling_position) 
         && (selling_position < stop_loss_value) )
@@ -226,6 +245,7 @@ char validate_inputs()
             ret = INIT_SUCCEEDED;
         }
     }
+
     else
     {
         Alert("Error");
