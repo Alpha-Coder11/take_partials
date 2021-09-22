@@ -43,7 +43,7 @@ int OnInit()
   else if( trade == TRADE_TYPE_BUY )
   {
       temp = Ask;
-      tp2 = temp + ( risk_reward_ratio * ( stop_loss_value - temp ));
+      tp_2 = temp + ( risk_reward_ratio * ( stop_loss_value - temp ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, temp, stop_loss_value);
   }
   else if (trade == TRADE_TYPE_SELL_LIMIT) 
@@ -54,7 +54,7 @@ int OnInit()
   else if( trade == TRADE_TYPE_SELL )
   {   
       temp = Bid;
-      tp2 = temp - ( risk_reward_ratio * ( stop_loss_value - temp ));
+      tp_2 = temp - ( risk_reward_ratio * ( stop_loss_value - temp ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, temp, stop_loss_value);
   }
   else if( trade == TRADE_TYPE_NONE )
@@ -65,7 +65,7 @@ int OnInit()
   {
       optimal_lot_size = 0;
       partial_close_lot = 0;
-      tp2 = -1; 
+      tp_2 = -1; 
   }
 
   result = validate_inputs(temp);
