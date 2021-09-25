@@ -18,7 +18,8 @@ input double    buying_position        = 0.0;
 input double    selling_position       = 0.0;
 input double    max_loss_percent       = 0.01;
 input double    lot_close_tp2_percent  = 0.8;
-
+input double    show_alerts            = 0;
+ 
 double optimal_lot_size  = 0;
 double partial_close_lot = 0;
 double tp_2 = 0;
@@ -28,6 +29,7 @@ uchar slippage = 3;
 
 int OnInit()
 {
+  Alert(" "); 
   double temp = 0;  
   char result = 0;
   /*
@@ -38,26 +40,32 @@ int OnInit()
   if( trade == TRADE_TYPE_BUY_LIMIT )
   {
       tp_2 = buying_position + ( risk_reward_ratio * ( buying_position - stop_loss_value ));
-      Alert("tp_2"  + tp_2);
-      Print("tp_2"  + tp_2);
       optimal_lot_size = optimal_lot_size( max_loss_percent, buying_position, stop_loss_value);
+      Alert("Partials will be closed at price: "  + tp_2);
+      Print("Partials will be closed at price: "  + tp_2);      
   }
   else if( trade == TRADE_TYPE_BUY )
   {
       temp = Ask;
       tp_2 = temp + ( risk_reward_ratio * (temp - stop_loss_value ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, temp, stop_loss_value);
+      Alert("Partials will be closed at price: "  + tp_2);
+      Print("Partials will be closed at price: "  + tp_2);      
   }
   else if (trade == TRADE_TYPE_SELL_LIMIT) 
   {
       tp_2 = selling_position - ( risk_reward_ratio * ( stop_loss_value - selling_position ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, selling_position, stop_loss_value);
+      Alert("Partials will be closed at price: "  + tp_2);
+      Print("Partials will be closed at price: "  + tp_2);      
   }
   else if( trade == TRADE_TYPE_SELL )
   {   
       temp = Bid;
       tp_2 = temp - ( risk_reward_ratio * ( stop_loss_value - temp ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, temp, stop_loss_value);
+      Alert("Partials will be closed at price: "  + tp_2);
+      Print("Partials will be closed at price: "  + tp_2);      
   }
   else if( trade == TRADE_TYPE_NONE )
   {
@@ -86,6 +94,10 @@ int OnInit()
 void OnDeinit(const int reason)
 {
    //do nothing   
+     Print(TimeCurrent(),": " ,__FUNCTION__," reason code = ",reason);
+//--- "clear" comment
+   Comment("Expert Advisor Closed");
+//---
 }
 
 //+------------------------------------------------------------------+
@@ -93,7 +105,9 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {   
+    double tick_size = MarketInfo(NULL,MODE_TICKSIZE);
     static uint try = 0;
+    double current_price = 0;
     if( trade == TRADE_TYPE_BUY_LIMIT )
     {
         if ( try == 0 )
@@ -101,7 +115,10 @@ void OnTick()
             ticket = OrderSend(Symbol(), OP_BUYLIMIT, optimal_lot_size, buying_position, slippage, stop_loss_value, take_profit_value, "Buy Limit",11111,0,clrGreen);
             if(ticket < 0)
             {
-                Print("OrderSend failed with error #",GetLastError());
+               if(show_alerts == 1)
+               { 
+                Alert("OrderSend failed with error #",GetLastError());
+               }
             }
             else
             {
@@ -111,16 +128,23 @@ void OnTick()
         }
         else if(try == 1)
         {
+
+/*new_line*/current_price = MathAbs( Ask - tp_2);
+/*new_line*/if(current_price < (tick_size*10) )        
             order_status = OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed );
             if(order_status == 0 )
-            {         
-                Print("OrderClose failed with error #",GetLastError());
+            {        
+               if(show_alerts == 1)
+               { 
+                Alert("OrderClose failed with error #",GetLastError());
+               }
             }
             else 
             {
                 try = 2;
                 Print("Order partially closed successfully");
-                return;
+                ExpertRemove();
+                Print(TimeCurrent(),": ",__FUNCTION__," Expert advisor will be unloaded");
             }
         }
     }
@@ -131,7 +155,10 @@ void OnTick()
             ticket = OrderSend(Symbol(), OP_SELLLIMIT, optimal_lot_size, selling_position, slippage, stop_loss_value, take_profit_value, "Sell Limit",22222,0,clrGreen);
             if(ticket < 0)
             {
-                Print("OrderSend failed with error #",GetLastError());
+               if(show_alerts == 1)
+               { 
+                Alert("OrderSend failed with error #",GetLastError());
+               }
             }
             else
             {
@@ -141,16 +168,24 @@ void OnTick()
         }
         else if(try == 1)
         {
+/*new_line*/current_price = MathAbs( Bid - tp_2);
+/*new_line*/if(current_price < (tick_size*10) )        
+        
             order_status = OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed );
             if(order_status == 0 )
             {         
-                Print("OrderClose failed with error #",GetLastError());
+               if(show_alerts == 1)
+               { 
+                Alert("OrderClose failed with error #",GetLastError());
+               }
             }
             else 
             {
                 try = 2;
                 Print("Order partially closed successfully");
-                return;
+                ExpertRemove();
+                Print(TimeCurrent(),": ",__FUNCTION__," Expert advisor will be unloaded");
+                
             }
         }
     }
@@ -161,9 +196,10 @@ void OnTick()
             ticket = OrderSend(Symbol(), OP_BUY, optimal_lot_size, Ask, slippage, stop_loss_value,take_profit_value, "Buy order", 88888, 0, clrBlue);
             if( ticket == -1)
             {
-                Alert("OrderClose failed with error #", GetLastError());
-                try = 3;
-               
+               if(show_alerts == 1)
+               { 
+                Alert("OrderSend failed with error #",GetLastError());
+               }
             }
               else
             {
@@ -173,16 +209,27 @@ void OnTick()
         }
         else if ( try == 1 )
         {
-            order_status = OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed );
+        
+            
+/*new_line*/current_price = MathAbs( Ask - tp_2);
+/*new_line*/if(current_price < (tick_size*10))
+            { 
+               //order_status = OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed );
+               order_status = OrderClose( ticket, partial_close_lot, Ask, slippage, clrRed );
+/*new_line*/}
             if( order_status == 0 )
             {
-                Alert("OrderClose failed with error #", GetLastError());
+               if(show_alerts == 1)
+               { 
+                Alert("OrderClose failed with error #",GetLastError());
+               }
             }
             else
             {
                 try = 2;
                 Print("Order partially closed successfully");
-                return;
+                ExpertRemove();
+                Print(TimeCurrent(),": ",__FUNCTION__," Expert advisor will be unloaded");
             }
         }
     }
@@ -193,11 +240,12 @@ void OnTick()
             ticket = OrderSend(Symbol(), OP_SELL, optimal_lot_size, Bid, slippage, stop_loss_value,take_profit_value, "Sell Order", 99999, 0, clrYellow);            
             if( ticket == -1)
             {
-                Alert("OrderClose failed with error #", GetLastError());
-                try = 3;
-               
+               if(show_alerts == 1)
+               { 
+                Alert("OrderSend failed with error #",GetLastError());
+               }
             }
-              else
+            else
             {
                 try = 1;
                 Print("Order placed successfully");
@@ -205,18 +253,25 @@ void OnTick()
         }
         else if( try == 1)
         {
+        
+/*new_line*/current_price = MathAbs( Bid - tp_2);
+/*new_line*/if(current_price < (tick_size*10) )
             order_status= OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed);
             if( order_status == 0)
             {
-                Print("OrderClose failed with error #", GetLastError());
+               if(show_alerts == 1)
+               { 
+                Alert("OrderClose failed with error #",GetLastError());
+               }
             }
             else
             {
                 try = 2;
                 Print("Order partially closed successfully");
-                return;
+                ExpertRemove();
+                Print(TimeCurrent(),": ",__FUNCTION__," Expert advisor will be unloaded");
             }
-        }
+         }
     }
     else 
     {
@@ -239,8 +294,14 @@ char validate_inputs(double position)
         && (tp_2 > position) && (position > stop_loss_value)
         && (stop_loss_value > 0) )
         {
+            
             ret = INIT_SUCCEEDED;
         }
+        else
+       {
+           Alert("Inputs are incorrect check again!!"); 
+           //Alert("Error");
+       }
     }
     else if( trade == TRADE_TYPE_BUY_LIMIT ) 
     {
@@ -248,8 +309,14 @@ char validate_inputs(double position)
         && (tp_2 > buying_position) && (buying_position > stop_loss_value)
         && (stop_loss_value > 0) )
         {
+            
             ret = INIT_SUCCEEDED;
         }
+       else
+       {
+           Alert("Inputs are incorrect check again!!"); 
+           //Alert("Error");
+       }
     }
     else if( trade == TRADE_TYPE_SELL )
     { 
@@ -257,8 +324,14 @@ char validate_inputs(double position)
         && (take_profit_value < tp_2) && (tp_2 < position) 
         && (position < stop_loss_value) )
         {
+            
             ret = INIT_SUCCEEDED;
         }
+       else
+       {
+           Alert("Inputs are incorrect check again!!"); 
+           //Alert("Error");
+       }
     }
     else if (trade == TRADE_TYPE_SELL_LIMIT)
     {
@@ -266,13 +339,20 @@ char validate_inputs(double position)
         && (take_profit_value < tp_2) && (tp_2 < selling_position) 
         && (selling_position < stop_loss_value) )
         {
+            
             ret = INIT_SUCCEEDED;
         }
+         else
+       {
+           Alert("Inputs are incorrect check again!!"); 
+           //Alert("Error");
+       }
     }
 
     else
     {
-        Alert("Error");
+        Alert("TRADE TYPE IS INCORRECT!!"); 
+        //Alert("Error");
     }
 
     return ret;
