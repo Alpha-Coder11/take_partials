@@ -11,11 +11,11 @@
 //+------------------------------------------------------------------+
 
 input enum_trade_type trade = TRADE_TYPE_BUY_LIMIT;
-input double    stop_loss_value        = 1.42440;
-input double    take_profit_value      = 1.38311;
+input double    stop_loss_value        = 0.0;
+input double    take_profit_value      = 0.0;
 input double    risk_reward_ratio      = 5;
-input double    buying_position        = 0;
-input double    selling_position       = 1.14195;
+input double    buying_position        = 0.0;
+input double    selling_position       = 0.0;
 input double    max_loss_percent       = 0.01;
 input double    lot_close_tp2_percent  = 0.8;
 
@@ -28,7 +28,7 @@ uchar slippage = 3;
 
 int OnInit()
 {
-  uint temp = 0;  
+  double temp = 0;  
   char result = 0;
   /*
   if( IsDemo() == 0 )
@@ -38,12 +38,14 @@ int OnInit()
   if( trade == TRADE_TYPE_BUY_LIMIT )
   {
       tp_2 = buying_position + ( risk_reward_ratio * ( buying_position - stop_loss_value ));
+      Alert("tp_2"  + tp_2);
+      Print("tp_2"  + tp_2);
       optimal_lot_size = optimal_lot_size( max_loss_percent, buying_position, stop_loss_value);
   }
   else if( trade == TRADE_TYPE_BUY )
   {
       temp = Ask;
-      tp_2 = temp + ( risk_reward_ratio * ( stop_loss_value - temp ));
+      tp_2 = temp + ( risk_reward_ratio * (temp - stop_loss_value ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, temp, stop_loss_value);
   }
   else if (trade == TRADE_TYPE_SELL_LIMIT) 
@@ -157,6 +159,17 @@ void OnTick()
         if ( try == 0 )
         {
             ticket = OrderSend(Symbol(), OP_BUY, optimal_lot_size, Ask, slippage, stop_loss_value,take_profit_value, "Buy order", 88888, 0, clrBlue);
+            if( ticket == -1)
+            {
+                Alert("OrderClose failed with error #", GetLastError());
+                try = 3;
+               
+            }
+              else
+            {
+                try = 1;
+                Print("Order placed successfully");
+            }
         }
         else if ( try == 1 )
         {
@@ -177,7 +190,18 @@ void OnTick()
     {
         if ( try == 0 )
         {
-            ticket = OrderSend(Symbol(), OP_BUY, optimal_lot_size, Bid, slippage, stop_loss_value,take_profit_value, "Sell Order", 99999, 0, clrYellow);            
+            ticket = OrderSend(Symbol(), OP_SELL, optimal_lot_size, Bid, slippage, stop_loss_value,take_profit_value, "Sell Order", 99999, 0, clrYellow);            
+            if( ticket == -1)
+            {
+                Alert("OrderClose failed with error #", GetLastError());
+                try = 3;
+               
+            }
+              else
+            {
+                try = 1;
+                Print("Order placed successfully");
+            }
         }
         else if( try == 1)
         {
