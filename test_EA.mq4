@@ -18,7 +18,7 @@ input double    buying_position        = 0.0;
 input double    selling_position       = 0.0;
 input double    max_loss_percent       = 0.01;
 input double    lot_close_tp2_percent  = 0.8;
-input double    show_alerts            = 0;
+input double    show_error_alerts      = 0;
  
 double optimal_lot_size  = 0;
 double partial_close_lot = 0;
@@ -26,7 +26,7 @@ double tp_2 = 0;
 int ticket = 0;
 uchar order_status = false;
 uchar slippage = 3;
-
+double  last_price = 0;
 int OnInit()
 {
   Alert(" "); 
@@ -39,33 +39,32 @@ int OnInit()
   }*/
   if( trade == TRADE_TYPE_BUY_LIMIT )
   {
+      last_price = Ask;
       tp_2 = buying_position + ( risk_reward_ratio * ( buying_position - stop_loss_value ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, buying_position, stop_loss_value);
-      Alert("Partials will be closed at price: "  + tp_2);
-      Print("Partials will be closed at price: "  + tp_2);      
+      Alert("Partials will be closed approximately at price: "  + tp_2);
   }
   else if( trade == TRADE_TYPE_BUY )
   {
+      last_price = Ask;
       temp = Ask;
       tp_2 = temp + ( risk_reward_ratio * (temp - stop_loss_value ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, temp, stop_loss_value);
-      Alert("Partials will be closed at price: "  + tp_2);
-      Print("Partials will be closed at price: "  + tp_2);      
+      Alert("Partials will be closed approximately at price: "  + tp_2);
   }
   else if (trade == TRADE_TYPE_SELL_LIMIT) 
-  {
+  {   last_price = Bid;
       tp_2 = selling_position - ( risk_reward_ratio * ( stop_loss_value - selling_position ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, selling_position, stop_loss_value);
-      Alert("Partials will be closed at price: "  + tp_2);
-      Print("Partials will be closed at price: "  + tp_2);      
+      Alert("Partials will be closed approximately at price: "  + tp_2);
   }
   else if( trade == TRADE_TYPE_SELL )
   {   
+      last_price = Bid;
       temp = Bid;
       tp_2 = temp - ( risk_reward_ratio * ( stop_loss_value - temp ));
       optimal_lot_size = optimal_lot_size( max_loss_percent, temp, stop_loss_value);
-      Alert("Partials will be closed at price: "  + tp_2);
-      Print("Partials will be closed at price: "  + tp_2);      
+      Alert("Partials will be closed approximately at price: "  + tp_2);      
   }
   else if( trade == TRADE_TYPE_NONE )
   {
@@ -84,7 +83,7 @@ int OnInit()
       return(result);
   }
   partial_close_lot = optimal_lot_size * lot_close_tp2_percent;
- 
+  
   return( INIT_SUCCEEDED );
 }
 
@@ -107,7 +106,9 @@ void OnTick()
 {   
     double tick_size = MarketInfo(NULL,MODE_TICKSIZE);
     static uint try = 0;
-    double current_price = 0;
+    double diff_price = 0;
+    static double current_price = 0;
+
     if( trade == TRADE_TYPE_BUY_LIMIT )
     {
         if ( try == 0 )
@@ -115,9 +116,9 @@ void OnTick()
             ticket = OrderSend(Symbol(), OP_BUYLIMIT, optimal_lot_size, buying_position, slippage, stop_loss_value, take_profit_value, "Buy Limit",11111,0,clrGreen);
             if(ticket < 0)
             {
-               if(show_alerts == 1)
+               if(show_error_alerts == 1)
                { 
-                Alert("OrderSend failed with error #",GetLastError());
+                    Alert("OrderSend for BUY_LIMIT failed with error #",GetLastError());
                }
             }
             else
@@ -128,21 +129,27 @@ void OnTick()
         }
         else if(try == 1)
         {
+            current_price = Bid;
+/*new_line*/diff_price = MathAbs( Bid - tp_2);
+/*new_line*/if( ( diff_price < (tick_size*10) )
+               || ( ( current_price > tp_2 ) && ( last_price < tp_2 ) ) ) 
+            {
+                RefreshRates();
+                order_status = OrderClose( ticket, partial_close_lot, Bid, slippage, clrRed );
+            }       
+            last_price = current_price;
 
-/*new_line*/current_price = MathAbs( Ask - tp_2);
-/*new_line*/if(current_price < (tick_size*10) )        
-            order_status = OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed );
             if(order_status == 0 )
             {        
-               if(show_alerts == 1)
+               if(show_error_alerts == 1)
                { 
-                Alert("OrderClose failed with error #",GetLastError());
+                   Alert("OrderClose failed with error #",GetLastError());
                }
             }
             else 
             {
                 try = 2;
-                Print("Order partially closed successfully");
+                Alert("Order partially closed successfully");
                 ExpertRemove();
                 Print(TimeCurrent(),": ",__FUNCTION__," Expert advisor will be unloaded");
             }
@@ -155,9 +162,9 @@ void OnTick()
             ticket = OrderSend(Symbol(), OP_SELLLIMIT, optimal_lot_size, selling_position, slippage, stop_loss_value, take_profit_value, "Sell Limit",22222,0,clrGreen);
             if(ticket < 0)
             {
-               if(show_alerts == 1)
+               if(show_error_alerts == 1)
                { 
-                Alert("OrderSend failed with error #",GetLastError());
+                       Alert("OrderSend for SELL LIMIT failed with error #",GetLastError());
                }
             }
             else
@@ -168,21 +175,25 @@ void OnTick()
         }
         else if(try == 1)
         {
-/*new_line*/current_price = MathAbs( Bid - tp_2);
-/*new_line*/if(current_price < (tick_size*10) )        
-        
-            order_status = OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed );
-            if(order_status == 0 )
+            current_price = Ask;
+/*new_line*/diff_price = MathAbs( Ask - tp_2);
+/*new_line*/if(  (diff_price < (tick_size*10) )
+               || ( ( current_price < tp_2 ) && ( last_price > tp_2 ) ))        
+           {
+               RefreshRates();
+               order_status = OrderClose( ticket, partial_close_lot, Ask, slippage, clrRed );
+           } 
+            if( order_status == 0 )
             {         
-               if(show_alerts == 1)
+               if( show_error_alerts == 1 )
                { 
-                Alert("OrderClose failed with error #",GetLastError());
+                    Alert("OrderClose failed with error #",GetLastError());
                }
             }
             else 
             {
                 try = 2;
-                Print("Order partially closed successfully");
+                Alert("Order partially closed successfully");
                 ExpertRemove();
                 Print(TimeCurrent(),": ",__FUNCTION__," Expert advisor will be unloaded");
                 
@@ -193,12 +204,14 @@ void OnTick()
     {
         if ( try == 0 )
         {
+            RefreshRates();
             ticket = OrderSend(Symbol(), OP_BUY, optimal_lot_size, Ask, slippage, stop_loss_value,take_profit_value, "Buy order", 88888, 0, clrBlue);
+            Alert("Order Send ticket#: " + ticket);
             if( ticket == -1)
             {
-               if(show_alerts == 1)
+               if(show_error_alerts == 1)
                { 
-                Alert("OrderSend failed with error #",GetLastError());
+                   Alert("OrderSend for BUY failed with error #",GetLastError());
                }
             }
               else
@@ -209,25 +222,25 @@ void OnTick()
         }
         else if ( try == 1 )
         {
-        
-            
-/*new_line*/current_price = MathAbs( Ask - tp_2);
-/*new_line*/if(current_price < (tick_size*10))
+            current_price = Bid;
+/*new_line*/diff_price = MathAbs( Bid - tp_2);
+/*new_line*/if( (diff_price < (tick_size*10)) 
+               || ( ( current_price > tp_2 ) && ( last_price < tp_2 ) ) )
             { 
-               //order_status = OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed );
-               order_status = OrderClose( ticket, partial_close_lot, Ask, slippage, clrRed );
+               RefreshRates();
+               order_status = OrderClose( ticket, partial_close_lot, Bid, slippage, clrRed );
 /*new_line*/}
             if( order_status == 0 )
             {
-               if(show_alerts == 1)
+               if(show_error_alerts == 1)
                { 
-                Alert("OrderClose failed with error #",GetLastError());
+                  Alert("OrderClose failed with error #",GetLastError());
                }
             }
             else
             {
                 try = 2;
-                Print("Order partially closed successfully");
+                Alert("Order partially closed successfully");
                 ExpertRemove();
                 Print(TimeCurrent(),": ",__FUNCTION__," Expert advisor will be unloaded");
             }
@@ -240,9 +253,9 @@ void OnTick()
             ticket = OrderSend(Symbol(), OP_SELL, optimal_lot_size, Bid, slippage, stop_loss_value,take_profit_value, "Sell Order", 99999, 0, clrYellow);            
             if( ticket == -1)
             {
-               if(show_alerts == 1)
+               if(show_error_alerts == 1)
                { 
-                Alert("OrderSend failed with error #",GetLastError());
+                   Alert("OrderSend failed with error #",GetLastError());
                }
             }
             else
@@ -253,21 +266,25 @@ void OnTick()
         }
         else if( try == 1)
         {
-        
-/*new_line*/current_price = MathAbs( Bid - tp_2);
-/*new_line*/if(current_price < (tick_size*10) )
-            order_status= OrderClose( ticket, partial_close_lot, tp_2, slippage, clrRed);
-            if( order_status == 0)
+            current_price = Ask;
+/*new_line*/diff_price = MathAbs( Ask - tp_2);
+/*new_line*/if( (diff_price < (tick_size*10))
+             || ( ( current_price < tp_2 ) && ( last_price > tp_2 ) ) )
             {
-               if(show_alerts == 1)
+               RefreshRates();
+               order_status= OrderClose( ticket, partial_close_lot, Ask, slippage, clrRed);
+            }
+            if( order_status == 0 )
+            {
+               if( show_error_alerts == 1 )
                { 
-                Alert("OrderClose failed with error #",GetLastError());
+                  Alert("OrderClose failed with error #",GetLastError());
                }
             }
             else
             {
                 try = 2;
-                Print("Order partially closed successfully");
+                Alert("Order partially closed successfully");
                 ExpertRemove();
                 Print(TimeCurrent(),": ",__FUNCTION__," Expert advisor will be unloaded");
             }
